@@ -564,9 +564,16 @@ const CATEGORY_LABELS = {
   relevance:"Pertinence", performance:"Performance", security:"Sécurité",
   reliability:"Fiabilité", experience:"Expérience"
 };
+const CATEGORY_ICONS = {
+  relevance:"🎯", performance:"⚡", security:"🛡️", reliability:"🌀", experience:"😊"
+};
+const CATEGORY_TOTALS = Object.fromEntries(CATEGORIES.map(cat => [
+  cat,
+  scenarios.filter(s => Object.keys(s.impact || {}).includes(cat)).length
+]));
 const state = {
   index:0, score:0, correct:0, wrong:0, streak:0, bestStreak:0,
-  answered:false, timer:120, interval:null, lessons:[], points:0
+  answered:false, timer:120, interval:null, lessons:[], points:0, categoryCorrect:{}
 };
 
 const $ = id => document.getElementById(id);
@@ -575,35 +582,63 @@ const clamp = n => Math.max(0, Math.min(100, n));
 function validateScenarios() {
   const errors = [];
   if (scenarios.length !== 15) errors.push(`Le jeu doit contenir 15 questions (actuel : ${scenarios.length}).`);
+
+  const missions = new Set();
   scenarios.forEach((s, i) => {
-    const correct = s.choices.filter(c => c[2] === "correct").length;
-    if (correct !== 1) errors.push(`Question ${i+1} : il faut exactement 1 bonne réponse.`);
-    if (!s.choices || s.choices.length !== 4) errors.push(`Question ${i+1} : il faut 4 choix.`);
-    s.choices.forEach((c,j) => { if (!Array.isArray(c) || c.length < 3) errors.push(`Question ${i+1}, choix ${j+1} invalide.`); });
+    const n = i + 1;
+    if (!s || typeof s !== "object") { errors.push(`Question ${n} : scénario invalide.`); return; }
+    ["mission","title","client","text","hint","question","feedbackGood","feedbackBad"].forEach(k => {
+      if (!String(s[k] || "").trim()) errors.push(`Question ${n} : champ « ${k} » manquant.`);
+    });
+    if (missions.has(s.mission)) errors.push(`Question ${n} : mission dupliquée (${s.mission}).`);
+    missions.add(s.mission);
+
+    if (!Array.isArray(s.choices) || s.choices.length !== 4) {
+      errors.push(`Question ${n} : il faut exactement 4 choix.`);
+      return;
+    }
+    const correct = s.choices.filter(c => Array.isArray(c) && c[2] === "correct").length;
+    if (correct !== 1) errors.push(`Question ${n} : il faut exactement 1 bonne réponse.`);
+    const texts = new Set();
+    s.choices.forEach((c,j) => {
+      if (!Array.isArray(c) || c.length !== 3) { errors.push(`Question ${n}, choix ${j+1} invalide.`); return; }
+      if (!String(c[0] || "").trim() || !String(c[1] || "").trim()) errors.push(`Question ${n}, choix ${j+1} : texte ou explication manquant.`);
+      if (!['correct','wrong'].includes(c[2])) errors.push(`Question ${n}, choix ${j+1} : statut invalide.`);
+      const normalized = String(c[0]).trim().toLowerCase();
+      if (texts.has(normalized)) errors.push(`Question ${n} : choix dupliqué.`);
+      texts.add(normalized);
+    });
+
+    const impactKeys = Object.keys(s.impact || {});
+    if (impactKeys.length !== 1 || !CATEGORIES.includes(impactKeys[0])) {
+      errors.push(`Question ${n} : elle doit alimenter exactement une jauge connue.`);
+    }
   });
+
   CATEGORIES.forEach(cat => {
-    const total = scenarios.reduce((sum,s) => sum + Number(s.impact?.[cat] || 0), 0);
-    if (total !== 100) errors.push(`${CATEGORY_LABELS[cat]} : les gains totalisent ${total} au lieu de 100.`);
+    if (!CATEGORY_TOTALS[cat]) errors.push(`${CATEGORY_LABELS[cat]} : aucune question associée.`);
   });
+
   if (errors.length) {
     console.error("Validation des scénarios échouée :", errors);
-    document.body.classList.add("data-error");
-    $("dataError").textContent = errors.join(" ");
+    $("dataError").textContent = "⚠️ Données du jeu invalides : " + errors.join(" ");
     return false;
   }
-  console.info("✓ Validation réussie : 15 questions, 1 bonne réponse par question, chaque jauge totalise 100.");
+  console.info("✓ Validation réussie : 15 questions cohérentes, 1 bonne réponse chacune et toutes les jauges sont couvertes.");
   return true;
 }
-
 function resetState() {
   clearInterval(state.interval);
   Object.assign(state, {index:0, score:0, correct:0, wrong:0, streak:0, bestStreak:0,
-    answered:false, timer:120, lessons:[], points:0});
+    answered:false, timer:120, lessons:[], points:0, categoryCorrect:{}});
+  CATEGORIES.forEach(k => {
+    state[k] = 0;
+    state.categoryCorrect[k] = 0;
+  });
   renderMetrics();
   $("streak").textContent = "0";
   $("bestStreak").textContent = "0";
 }
-
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   $(id).classList.add("active");
@@ -620,12 +655,29 @@ function renderMetrics() {
   $("correctLive").textContent = state.correct;
 }
 
-function addMetricImpact(impact) {
-  Object.entries(impact || {}).forEach(([k,v]) => {
-    if (CATEGORIES.includes(k)) state[k] = clamp((state[k] || 0) + v);
-  });
+function categoryOf(scenario) {
+  return Object.keys(scenario.impact || {}).find(k => CATEGORIES.includes(k));
 }
 
+function awardCategoryPoint(scenario) {
+  const cat = categoryOf(scenario);
+  if (!cat) return {cat:null, gain:0, value:0};
+  const before = state[cat] || 0;
+  state.categoryCorrect[cat] = (state.categoryCorrect[cat] || 0) + 1;
+  const total = CATEGORY_TOTALS[cat] || 1;
+  state[cat] = clamp(Math.round((state.categoryCorrect[cat] / total) * 100));
+  return {cat, gain:state[cat] - before, value:state[cat]};
+}
+
+function animateMetric(cat) {
+  if (!cat) return;
+  const cap = cat[0].toUpperCase() + cat.slice(1);
+  const metric = $("m"+cap)?.closest(".metric");
+  if (!metric) return;
+  metric.classList.remove("metric-up");
+  void metric.offsetWidth;
+  metric.classList.add("metric-up");
+}
 function shuffle(array) {
   const a = [...array];
   for (let i=a.length-1;i>0;i--) {
@@ -671,19 +723,28 @@ function loadScenario() {
   $("scenarioText").textContent = s.text;
   $("contextHint").textContent = "💡 " + s.hint;
   $("questionText").textContent = s.question;
+  const cat = categoryOf(s);
+  $("categoryChip").textContent = `${CATEGORY_ICONS[cat] || "◆"} ${CATEGORY_LABELS[cat] || "Contexte"}`;
   $("feedback").className = "feedback hidden";
   $("continueBtn").classList.add("hidden");
   $("choiceArea").innerHTML = "";
   $("questionCard").classList.remove("question-in");
   void $("questionCard").offsetWidth;
   $("questionCard").classList.add("question-in");
+  const contextCard = document.querySelector(".context-card");
+  contextCard.classList.remove("context-enter");
+  void contextCard.offsetWidth;
+  contextCard.classList.add("context-enter");
+  $("progressBar").classList.remove("progress-pulse");
+  void $("progressBar").offsetWidth;
+  $("progressBar").classList.add("progress-pulse");
 
   // Les choix sont mélangés à chaque question : l'ordre de la bonne réponse varie.
-  shuffle(s.choices).forEach((c) => {
+  shuffle(s.choices).forEach((c, index) => {
     const b = document.createElement("button");
     b.className = "choice";
     b.dataset.answer = c[2];
-    b.innerHTML = `<span class="choice-icon">${c[0]}</span><span>${c[1]}</span>`;
+    b.innerHTML = `<span class="choice-icon">${String.fromCharCode(65+index)}</span><span>${c[0]}</span>`;
     b.onclick = () => choose(b, c);
     $("choiceArea").appendChild(b);
   });
@@ -713,6 +774,20 @@ function particles() {
   }
 }
 
+function stars() {
+  for (let i=0;i<10;i++) {
+    const star=document.createElement("span");
+    star.className="fx-star";
+    star.textContent=i%3===0?"✦":"✧";
+    star.style.left=(43+Math.random()*14)+"%";
+    star.style.top=(42+Math.random()*15)+"%";
+    star.style.setProperty("--sx",((Math.random()-.5)*330)+"px");
+    star.style.setProperty("--sy",(-45-Math.random()*170)+"px");
+    $("fxLayer").appendChild(star);
+    setTimeout(()=>star.remove(),1150);
+  }
+}
+
 function toast(msg, good=true) {
   $("toast").textContent=msg;
   $("toast").className="toast show " + (good ? "good":"bad");
@@ -724,11 +799,13 @@ function choose(button, choice) {
   state.answered = true;
   clearInterval(state.interval);
 
+  const scenario = scenarios[state.index];
   const buttons=[...document.querySelectorAll(".choice")];
   buttons.forEach(b=>b.classList.add("disabled"));
 
   const correct = choice && choice[2] === "correct";
-  const correctChoice = scenarios[state.index].choices.find(c=>c[2]==="correct");
+  const correctChoice = scenario.choices.find(c=>c[2]==="correct");
+  const correctButton = buttons.find(b=>b.dataset.answer === "correct");
 
   if (correct) {
     state.correct++;
@@ -739,34 +816,38 @@ function choose(button, choice) {
     const earned=base + (combo-1)*2;
     state.points += earned;
     state.score = clamp(Math.round((state.correct/scenarios.length)*100));
-    addMetricImpact(scenarios[state.index].impact);
+    const metricAward = awardCategoryPoint(scenario);
     button.classList.add("correct");
     $("questionCard").classList.add("success-pop");
     burst(`+${earned} ⚡`,true);
+    stars();
     if(state.streak>=2) toast(`🔥 Série de ${state.streak} ! +${earned} points`,true);
     else toast(`✓ Bonne décision ! +${earned}`,true);
     if(state.streak>=3) particles();
     $("feedback").className="feedback good";
-    $("feedback").innerHTML=`<strong>✓ Analyse validée</strong>${scenarios[state.index].feedbackGood}<br><em>Impact : +${Object.entries(scenarios[state.index].impact).map(([k,v])=>`${v} ${CATEGORY_LABELS[k]}`).join(" • ")}.</em>`;
+    $("feedback").innerHTML=`<strong>✓ Analyse validée</strong>${scenario.feedbackGood}<span class="selected-reason">Pourquoi : ${choice[1]}</span><span class="gauge-note">${CATEGORY_ICONS[metricAward.cat]} ${CATEGORY_LABELS[metricAward.cat]} : +${metricAward.gain} → ${metricAward.value}/100</span>`;
+    renderMetrics();
+    animateMetric(metricAward.cat);
   } else {
     state.wrong++;
     state.streak=0;
     state.score=clamp(Math.round((state.correct/scenarios.length)*100));
     if(button) button.classList.add("wrong");
+    if(correctButton) correctButton.classList.add("reveal-correct");
     $("questionCard").classList.add("error-shake");
     burst("− Série",false);
-    toast(button ? "À revoir : lis l'indice du contexte." : "⏱️ Temps écoulé",false);
+    toast(button ? "À revoir : compare ton choix aux indices." : "⏱️ Temps écoulé",false);
+    const selectedReason = choice ? `<span class="selected-reason"><strong>Pourquoi ce choix ne convient pas :</strong> ${choice[1]}</span>` : `<span class="selected-reason">Le temps est écoulé : aucun choix n'a été validé.</span>`;
     $("feedback").className="feedback bad";
-    $("feedback").innerHTML=`<strong>△ Analyse à revoir</strong>${scenarios[state.index].feedbackBad}<br><em>Réponse attendue : <strong>${correctChoice[1]}</strong></em>`;
-    state.lessons.push(scenarios[state.index].feedbackBad);
+    $("feedback").innerHTML=`<strong>△ Analyse à revoir</strong>${scenario.feedbackBad}${selectedReason}<span class="expected"><strong>Réponse attendue :</strong> ${correctChoice[0]} — ${correctChoice[1]}</span>`;
+    state.lessons.push(scenario.feedbackBad);
+    renderMetrics();
   }
 
   $("streak").textContent=state.streak;
   $("bestStreak").textContent=state.bestStreak;
-  renderMetrics();
   $("continueBtn").classList.remove("hidden");
 }
-
 function finish() {
   clearInterval(state.interval);
   const gaugeAvg=Math.round(CATEGORIES.reduce((sum,k)=>sum+state[k],0)/CATEGORIES.length);
