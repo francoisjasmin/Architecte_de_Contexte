@@ -7,47 +7,46 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="bg-orb orb-a"></div>
-  <div class="bg-orb orb-b"></div>
+  <div class="bg-grid"></div><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
+  <div id="fxLayer"></div>
 
   <main id="app">
     <header class="topbar">
       <div>
-        <span class="eyebrow">ARCHITECTURE LOGICIELLE</span>
+        <span class="eyebrow">ARCHITECTURE LOGICIELLE • LABO</span>
         <h1>Architecte de Contexte</h1>
-        <p class="subtitle">Comprends le contexte. Identifie les besoins. Fais évoluer ton système.</p>
+        <p class="subtitle">Comprends le contexte. Identifie les besoins. Prépare les décisions d'architecture.</p>
       </div>
       <div class="top-actions">
         <div class="level-badge" id="levelBadge">NIVEAU 1</div>
+        <div class="live-pill">⭐ <span id="scoreLive">0</span> &nbsp; 🔥 <span id="streak">0</span></div>
         <button class="ghost-btn" id="restartBtn">↻ Recommencer</button>
       </div>
     </header>
+
+    <div id="dataError" class="data-error"></div>
 
     <section id="startScreen" class="screen active">
       <div class="hero-card">
         <div class="hero-icon">🏢</div>
         <div>
           <span class="eyebrow">MISSION • TECHNOVA</span>
-          <h2>Ton entreprise doit concevoir un nouveau logiciel.</h2>
-          <p>
-            Tu ne dois pas encore choisir une architecture. Ton travail consiste à
-            <strong>comprendre le contexte</strong> et à transformer les informations
-            en besoins pertinents.
-          </p>
+          <h2>Tu es le détective du contexte.</h2>
+          <p>Avant de choisir une architecture, il faut comprendre <strong>ce qui influence les décisions</strong> : utilisateurs, accès, performance, sécurité, fiabilité et intégrations.</p>
         </div>
       </div>
 
       <div class="how-grid">
-        <article><span>01</span><h3>🔎 Analyse</h3><p>Repère ce que le contexte révèle : utilisateurs, accès, performance, sécurité, fiabilité...</p></article>
-        <article><span>02</span><h3>🧩 Conçois</h3><p>Place les éléments importants dans le dossier du projet et construis ton système.</p></article>
-        <article><span>03</span><h3>⚡ Réagis</h3><p>Les décisions ont des conséquences. Un bon système doit rester équilibré.</p></article>
+        <article><span>01</span><h3>🔎 Observe</h3><p>Lis les indices du dossier client et repère ce qui est important.</p></article>
+        <article><span>02</span><h3>🧩 Analyse</h3><p>Choisis l'information qui correspond vraiment au besoin ou à la contrainte.</p></article>
+        <article><span>03</span><h3>⚡ Fais évoluer</h3><p>Chaque bonne décision remplit les jauges et améliore ton score.</p></article>
       </div>
 
       <div class="objective-box">
         <strong>🎯 Objectif</strong>
-        <p>Obtenir le meilleur score de robustesse en identifiant correctement les besoins du logiciel.</p>
+        <p>Réussir les 15 missions. Si toutes les analyses sont correctes, <strong>chaque jauge atteint 100/100</strong>.</p>
+        <div class="rules"><span>⏱️ 2 min/question</span><span>🎯 15 questions</span><span>🔥 Séries de bonnes réponses</span></div>
       </div>
-
       <button class="primary-btn large" id="startBtn">Commencer la mission →</button>
     </section>
 
@@ -58,7 +57,7 @@
           <h2 id="scenarioTitle">Analyse du contexte</h2>
         </div>
         <div class="progress-wrap">
-          <span id="progressText">1 / 5</span>
+          <span id="progressText">1 / 15</span>
           <div class="progress"><div id="progressBar"></div></div>
         </div>
       </div>
@@ -72,32 +71,32 @@
           <div class="quote" id="contextHint"></div>
         </aside>
 
-        <section class="workspace">
+        <section class="workspace" id="questionCard">
           <div class="workspace-head">
             <div>
-              <div class="card-label">DÉCISION</div>
+              <div class="card-label">DÉCISION • LIS LES INDICES</div>
               <h3 id="questionText">Quel besoin identifies-tu ?</h3>
             </div>
-            <div class="timer" id="timer">45</div>
+            <div class="timer-wrap"><span>temps</span><div class="timer" id="timer">02:00</div></div>
           </div>
           <div id="choiceArea" class="choice-area"></div>
           <div id="feedback" class="feedback hidden"></div>
-          <button id="continueBtn" class="primary-btn hidden">Continuer →</button>
+          <button id="continueBtn" class="primary-btn hidden">Mission suivante →</button>
         </section>
       </div>
 
       <div class="metrics">
-        <div class="metric"><span>🎯 Pertinence</span><strong id="mRelevance">50</strong><div class="meter"><i id="barRelevance"></i></div></div>
-        <div class="metric"><span>⚡ Performance</span><strong id="mPerformance">50</strong><div class="meter"><i id="barPerformance"></i></div></div>
-        <div class="metric"><span>🛡️ Sécurité</span><strong id="mSecurity">50</strong><div class="meter"><i id="barSecurity"></i></div></div>
-        <div class="metric"><span>🌀 Fiabilité</span><strong id="mReliability">50</strong><div class="meter"><i id="barReliability"></i></div></div>
-        <div class="metric"><span>😊 Expérience</span><strong id="mExperience">50</strong><div class="meter"><i id="barExperience"></i></div></div>
+        <div class="metric"><span>🎯 Pertinence</span><strong id="mRelevance">0</strong><div class="meter"><i id="barRelevance"></i></div></div>
+        <div class="metric"><span>⚡ Performance</span><strong id="mPerformance">0</strong><div class="meter"><i id="barPerformance"></i></div></div>
+        <div class="metric"><span>🛡️ Sécurité</span><strong id="mSecurity">0</strong><div class="meter"><i id="barSecurity"></i></div></div>
+        <div class="metric"><span>🌀 Fiabilité</span><strong id="mReliability">0</strong><div class="meter"><i id="barReliability"></i></div></div>
+        <div class="metric"><span>😊 Expérience</span><strong id="mExperience">0</strong><div class="meter"><i id="barExperience"></i></div></div>
       </div>
 
       <div class="concept-strip">
-        <span>💡 Rappel</span>
+        <span>💡 RAPPEL</span>
         <p><strong>Fonctionnel</strong> = ce que le logiciel doit faire.</p>
-        <p><strong>Non fonctionnel</strong> = comment le logiciel doit se comporter.</p>
+        <p><strong>Contexte</strong> = ce qui influence ses contraintes et décisions.</p>
         <p><strong>UI</strong> = humain ↔ logiciel.</p>
         <p><strong>API</strong> = logiciel ↔ logiciel.</p>
       </div>
@@ -110,13 +109,13 @@
         <h2 id="resultTitle">Contexte maîtrisé !</h2>
         <p id="resultText"></p>
         <div class="final-score"><span>SCORE</span><strong id="finalScore">0</strong><small>/ 100</small></div>
+        <div class="result-meta">Réponses correctes : <strong id="correctLive">0</strong>/15 • Meilleure série : <strong id="bestStreak">0</strong></div>
         <div class="result-metrics" id="resultMetrics"></div>
         <div class="lessons" id="lessons"></div>
         <button class="primary-btn large" id="playAgainBtn">Rejouer la mission ↻</button>
       </div>
     </section>
   </main>
-
   <div id="toast" class="toast"></div>
   <script src="script.js"></script>
 </body>
